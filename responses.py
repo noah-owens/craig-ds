@@ -10,20 +10,34 @@ RESPONSES = {
     ],
     "not_connected": [
         "I'm not gonna DJ for no-one. Join a voice channel.",
-        "*Craig looks around in confusion.*"
+        "*Craig looks around in confusion.*",
     ],
-    "volume changed": [
-        "*Craig's volume is now set to {volume}%. He still isn't dancing.*"
+    "volume_changed": [
+        "*Craig's volume is now set to {volume}%. He still isn't dancing.*",
         "*Volume adjusted to {volume}%.*",
     ],
-    "help": [
-        "**Craig's Command List**\n"
-        "`!join [channel]` - Craig joins your voice channel.\n"
-        "`!play [file]` - Plays a local audio file.\n"
-        "`!yt [url]` - Downloads and plays a YouTube video.\n"
-        "`!stream [url]` - Streams audio from YouTube without downloading.\n"
-        "`!volume [0-100]` - Adjusts Craig's volume.\n"
-        "`!stop` - Banishes Craig."
+    "queue_empty": [
+        "Thank God. (Queue is empty)",
+        "Our long national nightmare is over. (Queue is empty)",
+    ],
+    "add_queue": [
+        "You sure? Okay. Added {len} tracks to queue.",
+    ],
+    "skip": [
+        "*Craig skipped that one. You're welcome.*",
+    ],
+    "not_playing": [
+        "You serious? Nothing's even playing.",
+    ],
+    "upcoming": [
+        "Who made this list, a bunch of jocks? \n {queue_text}",
+    ],
+    "queue_clear": [
+        "MAKE UP YOUR MIND (queue cleared)",
+        "*Craig cleared the queue. Please, no more.*",
+    ],
+    "max_entries": [
+        "*Craig only added {max} tracks to the queue. The man has limits.",
     ]
 }
 

@@ -9,6 +9,8 @@ import yt_dlp as youtube_dl
 
 from responses import get_response
 
+from collections import deque
+
 load_dotenv()
 token: str = os.getenv("TOKEN")
 
@@ -66,6 +68,20 @@ class Music(commands.Cog):
     """Defines a group of related music commands aka a Cog"""
     def __init__(self, bot):
         self.bot = bot
+        self.queue = deque()
+        self.current = None
+
+    async def play_next(self, ctx):
+        if self.queue:
+            self.current = self.queue.popleft()
+            ctx.voice_client.play(
+                self.current,
+                after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop)
+            )
+            await ctx.send(get_response("now_playing", title=self.current.title))
+        else:
+            self.current = None
+            await ctx.send(get_response("queue_empty"))
     
     # move to most recently requested voice channel if currently engaged, otherwise connect to voice
     @commands.command()
@@ -92,21 +108,51 @@ class Music(commands.Cog):
     async def yt(self, ctx, *, url):
         """Plays audio from youtube (pre-download)"""
         async with ctx.typing():
-            player = await YTDLSource.from_url(url, loop=self.bot.loop)
-            ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=False)
+            self.queue.append(player)
+            await ctx.send(get_response("add_queue", len=1))
 
-            await ctx.send(get_response("now_playing", title=player.title))
+            if not ctx.voice_client.is_playing():
+                await self.play_next(ctx)
 
-    # takes youtube url, routes it through YTDLSource stream=True and play()
     @commands.command()
     async def stream(self, ctx, *, url):
         """Plays audio from youtube (streamed, not downloaded)"""
-
         async with ctx.typing():
             player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+            self.queue.append(player)
+            await ctx.send(get_response("add_queue", len=1))
 
-        await ctx.send(get_response("now_playing", title=player.title))
+            if not ctx.voice_client.is_playing():
+                await self.play_next(ctx)
+
+    @commands.command()
+    async def skip(self, ctx):
+        """Skips current song and plays next in queue"""
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+            await ctx.send(get_response("skip"))
+        else:
+            await ctx.send(get_response("not_playing"))
+
+    @commands.command()
+    async def queue(self, ctx):
+        """Display queued songs"""
+        if not self.queue:
+            await ctx.send(get_response("queue_empty"))
+        else:
+            titles = [source.title for source in self.queue]
+            queue_text = "\n".join(f"{i+1}. {title}" for i, title in enumerate(titles[:10]))
+            await ctx.send(get_response("upcoming", queue_text=queue_text))
+
+    @commands.command()
+    async def clear(self, ctx):
+        """Clear out remaining songs in queue"""
+        self.queue.clear()
+        if ctx.voice_client and ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+        await ctx.send(get_response("queue_clear"))
+
 
     # adjust global volume if currently connected to voice
     @commands.command()
@@ -138,9 +184,7 @@ class Music(commands.Cog):
             else:
                 await ctx.send(get_response("not_connected"))
                 raise commands.CommandError('Author not connected to a voice channel.')
-        elif ctx.voice_client.is_playing():
-            ctx.voice_client.stop()
-
+                
 @commands.command()
 async def help(self, ctx):
     await ctx.send("help")
