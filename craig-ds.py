@@ -1,18 +1,23 @@
 import discord
+from discord.ext import commands
+
 import os
 from dotenv import load_dotenv
 
 import asyncio
-import youtube_dl
+import yt_dlp as youtube_dl
 
 load_dotenv()
-
 token: str = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = discord.Client(intents=intents)
+bot = commands.Bot(
+    command_prefix=commands.when_mentioned_or('!'),
+    description='Craig, a music bot that\'s not like, really into your music.',
+    intents=intents,
+)
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -30,16 +35,123 @@ ytdl_format_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)    
 
-@client.event
-async def on_ready() -> None:
-    print(f'We have logged in as {client.user}')
+class YTDLSource(discord.PCMVolumeTransformer):
+    """Turn youtube URL into volume regulated audio stream and metadata"""
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
 
-@client.event
-async def on_message(message) -> None:
-    if message.author == client.user:
-        return
+        self.data = data
+        self.title = data.get('title')
+        self.url = data.get('url')
+
+    @classmethod
+    async def from_url(cls, url, *, loop=None, stream=False):
+        """Creates YTDL instance from URL"""
+        # youtube_dl thread safety (ensure event loop available, run extract_info() in seperate thread)
+        loop = loop or asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+
+        # temporary playlist handling (will expand to handle playlists later)
+        if 'entries' in data:
+            data = data['entries'][0]
+
+        filename = data['url'] if stream else ytdl.prepare_filename(data)
+
+        # deliver audio file with video disabled and metadata available
+        return cls(discord.FFmpegPCMAudio(filename, options='-vn'), data=data)
+
+class Music(commands.Cog):
+    """Defines a group of related music commands aka a Cog"""
+    def __init__(self, bot):
+        self.bot = bot
     
-    if message.content.startswith('$hello'):
-        await message.channel.send("Hello!")
+    # move to most recently requested voice channel if currently engaged, otherwise connect to voice
+    @commands.command()
+    async def join(self, ctx, *, channel: discord.VoiceChannel):
+        """Join voice channel"""
+        if ctx.voice_Client is not None:
+            return await ctx.voice_client.move_to(channel)
+        
+        await channel.connect()
+    
+    # plays audio file (defined by query)
+    @commands.command()
+    async def play(self, ctx, *, query):
+        """play local file in voice"""
+        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(query))
+            
+        ctx.voice_client.play(source, after=lambda e: print(f'Player error: {e}') if e else None)
 
-client.run(token)
+        # add bot personality here
+        await ctx.send(f'Now playing: {query}')
+
+    # takes youtube url, routes it through YTDLSource stream=False and play()
+    @commands.command()
+    async def yt(self, ctx, *, url):
+        """Plays audio from youtube (pre-download)"""
+        async with ctx.typing():
+            player = await YTDLSource.from_url(url, loop=self.bot.loop)
+            ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+
+            # add bot personality here
+            await ctx.send(f'Now playing: {player.title}')
+
+    # takes youtube url, routes it through YTDLSource stream=True and play()
+    @commands.command()
+    async def stream(self, ctx, *, url):
+        """Plays audio from youtube (streamed, not downloaded)"""
+
+        async with ctx.typing():
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+
+        await ctx.send(f'Now playing: {player.title}')
+
+    # adjust global volume if currently connected to voice
+    @commands.command()
+    async def volume(self, ctx, volume: int):
+        """Changes music player volume"""
+
+        # add bot personality here
+        if ctx.voice_client is None:
+            return await ctx.send('Not connected to a voice channel.')
+
+        ctx.voice_client.source.volume = volume / 100
+        await ctx.send(f'Changed volume to {volume}%')
+
+    # dc bot
+    @commands.command()
+    async def stop(self, ctx):
+        """Disconnect bot from voice"""
+
+        await ctx.voice_client.disconnect()
+
+    # guarantee bot readiness before running play() yt() or stream()
+    @play.before_invoke
+    @yt.before_invoke
+    @stream.before_invoke
+    async def ensure_voice(self, ctx):
+        """connects bot to author voice channel, unless author is not currently in voice"""
+        if ctx.voice_client is None:
+            if ctx.author.voice:
+                await ctx.author.voice.channel.connect()
+            else:
+                await ctx.send('You are not connected to a voice channel.')
+                raise commands.CommandError('Author not connected to a voice channel.')
+        elif ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+
+@bot.event
+async def on_ready():
+    assert bot.user is not None
+
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    print('------')
+
+async def main():
+    async with bot:
+        await bot.add_cog(Music(bot))
+        await bot.start(token)
+
+if __name__ == "__main__":
+    asyncio.run(main())
