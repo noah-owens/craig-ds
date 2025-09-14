@@ -24,6 +24,11 @@ bot = commands.Bot(
 @bot.event
 async def on_ready():
     assert bot.user is not None
+
+    await bot.change_presence(
+        activity=discord.Activity(type=discord.ActivityType.listening, name="your bad taste")
+    )
+
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
 
 async def main():
