@@ -27,15 +27,6 @@ class Music(commands.Cog):
             self.current = None
             await ctx.send(get_response("queue_empty"))
     
-    # move to most recently requested voice channel if currently engaged, otherwise connect to voice
-    @commands.command()
-    async def join(self, ctx, *, channel: discord.VoiceChannel):
-        """Join voice channel"""
-        if ctx.voice_Client is not None:
-            return await ctx.voice_client.move_to(channel)
-        
-        await channel.connect()
-    
     # plays audio file (defined by query)
     @commands.command()
     async def play(self, ctx, *, query):
