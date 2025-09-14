@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 import asyncio
 import yt_dlp as youtube_dl
 
+from responses import get_response
+
 load_dotenv()
 token: str = os.getenv("TOKEN")
 
@@ -83,7 +85,7 @@ class Music(commands.Cog):
         ctx.voice_client.play(source, after=lambda e: print(f'Player error: {e}') if e else None)
 
         # add bot personality here
-        await ctx.send(f'Now playing: {query}')
+        await ctx.send(get_response("now_playing", title=query))
 
     # takes youtube url, routes it through YTDLSource stream=False and play()
     @commands.command()
@@ -93,8 +95,7 @@ class Music(commands.Cog):
             player = await YTDLSource.from_url(url, loop=self.bot.loop)
             ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
 
-            # add bot personality here
-            await ctx.send(f'Now playing: {player.title}')
+            await ctx.send(get_response("now_playing", title=player.title))
 
     # takes youtube url, routes it through YTDLSource stream=True and play()
     @commands.command()
@@ -105,19 +106,18 @@ class Music(commands.Cog):
             player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
             ctx.voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
 
-        await ctx.send(f'Now playing: {player.title}')
+        await ctx.send(get_response("now_playing", title=player.title))
 
     # adjust global volume if currently connected to voice
     @commands.command()
     async def volume(self, ctx, volume: int):
         """Changes music player volume"""
 
-        # add bot personality here
         if ctx.voice_client is None:
-            return await ctx.send('Not connected to a voice channel.')
+            return await ctx.send(get_response("not_connected"))
 
         ctx.voice_client.source.volume = volume / 100
-        await ctx.send(f'Changed volume to {volume}%')
+        await ctx.send(get_response("volume_changed", volume=volume))
 
     # dc bot
     @commands.command()
@@ -136,29 +136,19 @@ class Music(commands.Cog):
             if ctx.author.voice:
                 await ctx.author.voice.channel.connect()
             else:
-                await ctx.send('You are not connected to a voice channel.')
+                await ctx.send(get_response("not_connected"))
                 raise commands.CommandError('Author not connected to a voice channel.')
         elif ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
 @commands.command()
 async def help(self, ctx):
-    """describe all bot commands"""
-    embed = discord.Embed(title="Craig's Command List", color=discord.Color.purple())
-    embed.add_field(name="!join [channel]", value="Craig joins your channel.", inline=False)
-    embed.add_field(name="!play [file]", value="Plays a local audio file.", inline=False)
-    embed.add_field(name="!yt [url]", value="Downloads and plays a YouTube video.", inline=False)
-    embed.add_field(name="!stream [url]", value="Streams audio from YouTube without downloading.", inline=False)
-    embed.add_field(name="!volume [0-100]", value="Adjusts Craig's volume.", inline=False)
-    embed.add_field(name="!stop", value="Banishes Craig", inline=False)
-    await ctx.send(embed=embed)
+    await ctx.send("help")
 
 @bot.event
 async def on_ready():
     assert bot.user is not None
-
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
-    print('------')
 
 async def main():
     async with bot:
