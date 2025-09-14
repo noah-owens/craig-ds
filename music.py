@@ -63,9 +63,13 @@ class Music(commands.Cog):
     async def stream(self, ctx, *, url):
         """Plays audio from youtube (streamed, not downloaded)"""
         async with ctx.typing():
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            self.queue.append(player)
-            await ctx.send(get_response("add_queue", len=1))
+            try:
+                player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+                self.queue.append(player)
+                await ctx.send(get_response("add_queue", len=1))
+            except Exception as e:
+                print(f"Stream command failed: {e}")
+                await ctx.send("Craig choked on that link. Try another one.")
 
             if not ctx.voice_client.is_playing():
                 await self.play_next(ctx)
