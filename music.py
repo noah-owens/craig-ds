@@ -122,6 +122,11 @@ class Music(commands.Cog):
     @stream.before_invoke
     async def ensure_voice(self, ctx):
         """connects bot to author voice channel, unless author is not currently in voice"""
+        
+        print("ensure_voice triggered")
+        print("Author voice:", ctx.author.voice)
+        print("Voice client:", ctx.voice_client)
+
         if ctx.voice_client is None:
             if ctx.author.voice:
                 await ctx.author.voice.channel.connect()
