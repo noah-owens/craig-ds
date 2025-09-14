@@ -21,10 +21,6 @@ bot = commands.Bot(
     intents=intents,
 )
 
-@commands.command()
-async def help(self, ctx):
-    await ctx.send("help")
-
 @bot.event
 async def on_ready():
     assert bot.user is not None
