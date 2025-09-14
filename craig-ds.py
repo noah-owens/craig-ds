@@ -141,6 +141,18 @@ class Music(commands.Cog):
         elif ctx.voice_client.is_playing():
             ctx.voice_client.stop()
 
+@commands.command()
+async def help(self, ctx):
+    """describe all bot commands"""
+    embed = discord.Embed(title="Craig's Command List", color=discord.Color.purple())
+    embed.add_field(name="!join [channel]", value="Craig joins your channel.", inline=False)
+    embed.add_field(name="!play [file]", value="Plays a local audio file.", inline=False)
+    embed.add_field(name="!yt [url]", value="Downloads and plays a YouTube video.", inline=False)
+    embed.add_field(name="!stream [url]", value="Streams audio from YouTube without downloading.", inline=False)
+    embed.add_field(name="!volume [0-100]", value="Adjusts Craig's volume.", inline=False)
+    embed.add_field(name="!stop", value="Banishes Craig", inline=False)
+    await ctx.send(embed=embed)
+
 @bot.event
 async def on_ready():
     assert bot.user is not None
